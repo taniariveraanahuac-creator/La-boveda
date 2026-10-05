@@ -1,0 +1,39 @@
+rules_version = '2';
+// Reglas para #AbreLaBóveda.
+// Cualquiera con el enlace puede jugar SIN registrarse, pero solo
+// dentro de las ligas y con datos del tamaño esperado.
+// La liga deja de aceptar cambios en la fecha indicada (cámbiala cada semestre).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function activa() {
+      return request.time < timestamp.date(2027, 1, 31);
+    }
+
+    // Avance de cada equipo
+    match /ligas/{liga}/teams/{teamId} {
+      allow read: if true;
+      allow create, update: if activa()
+        && request.resource.data.keys().hasOnly(['name','emo','stages','n','tp','ts'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.n is int
+        && request.resource.data.n >= 0 && request.resource.data.n <= 6
+        && request.resource.data.tp is int
+        && request.resource.data.tp >= 0 && request.resource.data.tp <= 18;
+      allow delete: if activa();
+    }
+
+    // Estado de la partida (iniciar / terminar)
+    match /ligas/{liga}/game/state {
+      allow read: if true;
+      allow write: if activa()
+        && request.resource.data.keys().hasOnly(['live','ended','t0']);
+    }
+
+    // Todo lo demás, cerrado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
